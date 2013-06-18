@@ -1,19 +1,50 @@
-#
+########################################################################################################
+#                                                                                                      #
+#   Event2Timeline by @tomchop_ for CERT Societe Generale (@CertSG). Some features added by @Jipe_     #
+#                                                                                                      #
+#   This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported   #
+#   License.http://creativecommons.org/licenses/by-nc-sa/3.0/                                          #
+#                                                                                                      #
+#   https://cert.societegenerale.com/ - https://github.com/certsocietegenerale/event2timeline/         #
+#                                                                                                      #
+########################################################################################################
+
+### /!\ You need to modify the regexp (s['user'] = re.search) to match the /username/ strings in your langage! /!\ ###
 
 import csv, sys, re
-
-from dateutil.parser import parse
+import optparse
 import datetime
 import calendar
+import mmap
+import contextlib
+from dateutil.parser import parse
+from Evtx.Evtx import FileHeader
+from Evtx.Views import evtx_file_xml_view
+
+__description__ = "Event2Timeline"
+__version__ = "0.0.1"
+
+def import_xml(filename):
+
+	with open(filename, 'r') as f:
+		with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
+			fh = FileHeader(buf, 0x0)
+			for xml, record in evtx_file_xml_view(fh):
+				print xml
+
+#[*] Keys: Category, Description, Data, Domain\User, Date&Time, Source, Computer, Time, Date, Type, Event
+	
+	return logs
 
 def import_csv(filename, delimiter=';', quotechar='"'):
 
 	with open (filename, 'rU') as csvfile:
 		logs = []
 		print "[*] Reading file %s" % filename
-		#logreader = csv.reader(csvfile, delimiter=delimiter, quotechar=quotechar)
 		logreader = csv.DictReader(csvfile, delimiter=delimiter, quotechar=quotechar)
 		count = 0
+
+#Audit Success;23/05/2013;09:00:00;23/05/2013 09:00:00;538;Security;Ouverture/Fermeture de session;\S-1-5-21-2052699199-3915784498-1582209984-43253;USER01;"Fermeture de la session utilisateur : Utilisateur :        username Domaine :        userdomain Id. de la session :        (0x0,0xB38D21AB) Type de session :        4"; 
 
 		for log in logreader:
 			logs.append(log)
@@ -36,29 +67,30 @@ def print_log(log):
 		else:
 			print "%s:\n%s\n" % (key, log[key])
 
-
-
 def is_session(session_id, log):
 	return log['Description'].find(session_id) != -1
 
 def get_logons(user_sessions):
 	return [{'start': s['dates'][0], 'end': s['dates'][-1:][0]} for s in user_sessions]
-	# ret = []
-	# for s in user_sessions:
-	# 	ret.append({'start': s['timestamps'][0], 'end': s['timestamps'][-1:][0]})
-	# 	print "Start %s; End %s" % (s['timestamps'][0], s['timestamps'][-1:][0])
-	# return ret
-
-		
-
 
 if __name__ == '__main__':
 
-	if len(sys.argv) < 2:
-		print "Please specify filename"
-		exit(-1)
+	Parser = optparse.OptionParser(usage='usage: %prog -c|-x -f eventlogfile')
+	Parser.add_option('-f', '--filename', dest="eventlogfile", help='path to the evenlog file')
+	Parser.add_option('-c', '--csv', action="store_true", default=False, help='Specify the events are in CSV format (for an exported .evt)')
+	Parser.add_option('-x', '--xml', action="store_true", default=False, help='Specify the events are in XML format (for a native .evtx)')
 
-	logs = import_csv(sys.argv[1])
+	(options, args) = Parser.parse_args()
+	
+	if not options.eventlogfile:
+		Parser.error("You must specify a file name")
+
+	if options.csv:
+		logs = import_csv(options.eventlogfile)
+	elif options.xml:
+		logs = import_xml(options.eventlogfile)
+	else:
+		Parser.error("You must specify a file format format (csv or xml)")
 
 	session_list = []
 	for log in logs:
@@ -110,8 +142,6 @@ if __name__ == '__main__':
 				l['end'] = l['start'] + datetime.timedelta(seconds=10)
 			items.append({'lane': i, 'id':str(l['start'])[-8:], 'start': str(l['start']), 'end': str(l['end'])})
 		#break
-	
-
 
 	time_begin = min([i['start'] for i in items])
 	time_end = max([i['end'] for i in items])
