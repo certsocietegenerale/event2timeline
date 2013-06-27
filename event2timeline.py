@@ -9,7 +9,7 @@
 #                                                                                                      #
 ########################################################################################################
 
-### /!\ You need to modify the regexp (s['user'] = re.search) to match the "username" strings in your langage! /!\ ###
+### /!\ You must modify the regexp (s['user'] = re.search) to match the "username" strings in your langage! /!\ ###
 
 import csv, sys, re
 import optparse
