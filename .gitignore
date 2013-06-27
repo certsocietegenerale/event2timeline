@@ -42,6 +42,9 @@ timeline/*.js
 env-*
 libs
 
+# Event logs (hefty)
+*.evtx
+*.xml
 
 # MAC OS X stuff
 .DS_Store
