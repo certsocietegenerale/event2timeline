@@ -45,6 +45,7 @@ libs
 # Event logs (hefty)
 *.evtx
 *.xml
+*.csv
 
 # MAC OS X stuff
 .DS_Store

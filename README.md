@@ -1,16 +1,19 @@
 Event2Timeline
 ==============
 
-Event2Timeline is a free tool based on D3JS to graph Microsoft Windows sessions events
+Event2Timeline is a free tool based on D3js to graph Microsoft Windows sessions events.
 
 How to install
 --------------
 
-1) Just copy all files
+1) Clone the git repository
 
-2) Install python-dateutil (from pip) - http://labix.org/python-dateutil
+1.1) Create a virtual environment with virtualenv and activate it (optional) 
 
-3) You need to modify a regexp in the tool because of the language localisation of the event logs
+2) Install python-dateutil (from pip: `pip install python-dateutil`) - http://labix.org/python-dateutil
+3) Install python-evtx (from pip: `pip install python-evtx`) - http://www.williballenthin.com/evtx/
+
+4) You need to modify a regexp in the tool because of the language localisation of the event logs
 
 How to run 
 ----------
