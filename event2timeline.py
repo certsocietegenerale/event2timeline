@@ -24,17 +24,73 @@ from Evtx.Views import evtx_file_xml_view
 __description__ = "Event2Timeline"
 __version__ = "0.0.1"
 
+eid_regex = re.compile('<EventID Qualifiers="(?P<qualifiers>.*)">(?P<eid>\d+)</EventID>')
+sessid_regex = re.compile('<Data Name="TargetLogonId">(?P<session_id>0x[0-9a-fA-F]+)</Data>')
+time_regex = re.compile('SystemTime="(?P<time>.*)"')
+
+EVTX_LOGIN = [
+				4624 	# An account was successfully logged on
+				]	
+
+EVTX_LOGOFF = [
+				4647, 	# User initiated logoff
+				4634	# An account was logged off
+				]
+
+def get_data(xml, name):
+	rex = re.compile('<Data Name="%s">(?P<%s>.*)</Data>' % (name, name))
+	try:
+		return rex.search(xml).group(name)
+	except Exception, e:
+		return None
+
 def import_xml(filename):
+
+	sessions = {}
 
 	with open(filename, 'r') as f:
 		with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
 			fh = FileHeader(buf, 0x0)
+			count = 0
 			for xml, record in evtx_file_xml_view(fh):
-				print xml
+				match = eid_regex.search(xml)
+				eid = int(match.group('eid'))
+				session_id = get_data(xml, 'TargetLogonId')
+				
+				if eid in EVTX_LOGIN:
+
+					# Insert new session in dictionary
+					if session_id:
+						sessions[session_id] = {}
+					else:
+						continue
+
+					info = {}
+					info['logon_type'] = get_data(xml, 'LogonType')
+					info['eid'] = str(eid)
+					info['username'] = get_data(xml, 'TargetDomainName') + '\\' + get_data(xml, 'TargetUserName')
+					info['username'] = get_data(xml, 'TargetDomainName') + '\\' + get_data(xml, 'TargetUserName')
+					info['ip'] = get_data(xml, 'IpAddress') + ':' + get_data(xml, 'IpPort')
+					info['datetime'] = time_regex.search(xml).group('time')
+
+					sessions[session_id]['logon'] = info
+				
+				elif eid in EVTX_LOGOFF:
+					# Ignore if orphan session
+					if not sessions.get(session_id):
+						continue
+
+					info = {}
+					info['eid'] = str(eid)
+					info['datetime'] = time_regex.search(xml).group('time')
+					sessions[session_id]['logoff'] = info
+					
+# 4624 - Login 		528
+# 4647 - Logoff 	551
 
 #[*] Keys: Category, Description, Data, Domain\User, Date&Time, Source, Computer, Time, Date, Type, Event
-	
-	return logs
+
+	return sessions
 
 def import_csv(filename, delimiter=';', quotechar='"'):
 
@@ -42,21 +98,17 @@ def import_csv(filename, delimiter=';', quotechar='"'):
 		logs = []
 		print "[*] Reading file %s" % filename
 		logreader = csv.DictReader(csvfile, delimiter=delimiter, quotechar=quotechar)
-		count = 0
 
-#Audit Success;23/05/2013;09:00:00;23/05/2013 09:00:00;538;Security;Ouverture/Fermeture de session;\S-1-5-21-2052699199-3915784498-1582209984-43253;USER01;"Fermeture de la session utilisateur : Utilisateur :        username Domaine :        userdomain Id. de la session :        (0x0,0xB38D21AB) Type de session :        4"; 
+# Audit Success;23/05/2013;09:00:00;23/05/2013 09:00:00;538;Security;Ouverture/Fermeture de session;\S-1-5-21-2052699199-3915784498-1582209984-43253;USER01;"Fermeture de la session utilisateur : Utilisateur :        username Domaine :        userdomain Id. de la session :        (0x0,0xB38D21AB) Type de session :        4"; 
 
 		for log in logreader:
 			logs.append(log)
-			count += 1
 
-		print "[*] %s lines read, %s lines imported" % (count, len(logs))
-
+		print "[*] %s lines imported" % (len(logs))
 		print '[*] Keys: %s' % ", ".join([i for i in logs[0]])
 
-		logs = logs[::-1]
+		return logs[::-1]
 
-		return logs
 
 def print_log(log):
 	for key in log:
@@ -78,16 +130,16 @@ if __name__ == '__main__':
 	Parser = optparse.OptionParser(usage='usage: %prog -c|-x -f eventlogfile')
 	Parser.add_option('-f', '--filename', dest="eventlogfile", help='path to the evenlog file')
 	Parser.add_option('-c', '--csv', action="store_true", default=False, help='Specify the events are in CSV format (for an exported .evt)')
-	Parser.add_option('-x', '--xml', action="store_true", default=False, help='Specify the events are in XML format (for a native .evtx)')
+	Parser.add_option('-e', '--evtx', action="store_true", default=False, help='Specify the events are in EVTX format (for a native .evtx)')
 
 	(options, args) = Parser.parse_args()
 	
 	if not options.eventlogfile:
-		Parser.error("You must specify a file name")
+		Parser.error("You must specify a filename")
 
 	if options.csv:
 		logs = import_csv(options.eventlogfile)
-	elif options.xml:
+	elif options.evtx:
 		logs = import_xml(options.eventlogfile)
 	else:
 		Parser.error("You must specify a file format format (csv or xml)")
@@ -134,59 +186,19 @@ if __name__ == '__main__':
 		users[s['user']].append(s)
 	
 	lanes = [u for u in users]
-	#lanes = [lanes[0]]
+
 	items = []
 	for i, usr in enumerate(users):
 		for l in get_logons(users[usr]):
 			if l['end'] - l['start'] < datetime.timedelta(seconds=10):
 				l['end'] = l['start'] + datetime.timedelta(seconds=10)
 			items.append({'lane': i, 'id':str(l['start'])[-8:], 'start': str(l['start']), 'end': str(l['end'])})
-		#break
+		
 
 	time_begin = min([i['start'] for i in items])
 	time_end = max([i['end'] for i in items])
 
-	#delta = time_begin - 10
-
-	# for i in items:
-	# 	i['start'] -= delta
-	# 	i['end'] -= delta
-
-	# time_begin -= delta
-	# time_end -= delta
-
-	#print "[*] Collected sessions from %s to %s" % (datetime.datetime.utcfromtimestamp(time_begin), datetime.datetime.utcfromtimestamp(time_end))
 	print "[*] Collected sessions from %s to %s" % ((time_begin), (time_end))
-
-		# var lanes = ["Chinese","Japanese","Korean"],
-		# 	laneLength = lanes.length,
-		# 	items = [{"lane": 0, "id": "Qin", "start": 5, "end": 205},
-		# 			{"lane": 0, "id": "Jin", "start": 265, "end": 420},
-		# 			{"lane": 0, "id": "Sui", "start": 580, "end": 615},
-		# 			{"lane": 0, "id": "Tang", "start": 620, "end": 900},
-		# 			{"lane": 0, "id": "Song", "start": 960, "end": 1265},
-		# 			{"lane": 0, "id": "Yuan", "start": 1270, "end": 1365},
-		# 			{"lane": 0, "id": "Ming", "start": 1370, "end": 1640},
-		# 			{"lane": 0, "id": "Qing", "start": 1645, "end": 1910},
-		# 			{"lane": 1, "id": "Yamato", "start": 300, "end": 530},
-		# 			{"lane": 1, "id": "Asuka", "start": 550, "end": 700},
-		# 			{"lane": 1, "id": "Nara", "start": 710, "end": 790},
-		# 			{"lane": 1, "id": "Heian", "start": 800, "end": 1180},
-		# 			{"lane": 1, "id": "Kamakura", "start": 1190, "end": 1330},
-		# 			{"lane": 1, "id": "Muromachi", "start": 1340, "end": 1560},
-		# 			{"lane": 1, "id": "Edo", "start": 1610, "end": 1860},
-		# 			{"lane": 1, "id": "Meiji", "start": 1870, "end": 1900},
-		# 			{"lane": 1, "id": "Taisho", "start": 1910, "end": 1920},
-		# 			{"lane": 1, "id": "Showa", "start": 1925, "end": 1985},
-		# 			{"lane": 1, "id": "Heisei", "start": 1990, "end": 1995},
-		# 			{"lane": 2, "id": "Three Kingdoms", "start": 10, "end": 670},
-		# 			{"lane": 2, "id": "North and South States", "start": 690, "end": 900},
-		# 			{"lane": 2, "id": "Goryeo", "start": 920, "end": 1380},
-		# 			{"lane": 2, "id": "Joseon", "start": 1390, "end": 1890},
-		# 			{"lane": 2, "id": "Korean Empire", "start": 1900, "end": 1945}]
-		# 	timeBegin = 0,
-		# 	timeEnd = 2000;
-
 
 	js = open('timeline/evtdata.js','w+')
 
