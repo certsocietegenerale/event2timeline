@@ -31,3 +31,8 @@ For old EVT files:
 
 Win 7 EVTX files are supported. Just run `event2timeline.py -x -f Security.evtx`
 
+Example
+-------
+
+![Rendering example](/event2timeline.png "Result after parsing the SANS FOR 508 Security event logs")
+
