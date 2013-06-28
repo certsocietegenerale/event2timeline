@@ -1,7 +1,7 @@
 Event2Timeline
 ==============
 
-Event2Timeline is a free tool based on D3js to graph Microsoft Windows sessions events.
+Event2Timeline is a free tool based on D3js to graph Microsoft Windows sessions events. It parses both EVTX event logs from post Vista systems (Vista, Windows 7, Windows 8), and CSV exports of the legacy EVT log files.
 
 How to install
 --------------
@@ -25,7 +25,7 @@ How to run
 
 For old EVT files:
 
-- Convert your eventlogs to CSV format. You can use the free [Microsoft Log Parser 2.2](http://www.microsoft.com/en-us/download/details.aspx?id=24659) 
+- Convert your eventlogs to CSV format. You can use the free [Microsoft Log Parser 2.2](http://www.microsoft.com/en-us/download/details.aspx?id=24659).
 
 - Run `event2timeline.py -c -f csv_filename.csv`
 
