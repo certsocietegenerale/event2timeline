@@ -69,9 +69,9 @@ def import_xml(filename):
 			count = 0
 			for xml, record in evtx_file_xml_view(fh):
 				if (count % 2000) == 0:
-					print "%s records read"
+					print "%s records read" % count
 				count +=1
-
+				
 				match = eid_regex.search(xml)
 				eid = int(match.group('eid'))
 				session_id = get_data(xml, 'TargetLogonId')
