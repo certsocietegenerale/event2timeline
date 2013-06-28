@@ -29,13 +29,20 @@ sessid_regex = re.compile('<Data Name="TargetLogonId">(?P<session_id>0x[0-9a-fA-
 time_regex = re.compile('SystemTime="(?P<time>.*)"')
 
 EVTX_LOGIN = [
-				4624 	# An account was successfully logged on
+				4624, 	# An account was successfully logged on
+				4778,	# RDP - Session connceted / reconnected
 				]	
 
 EVTX_LOGOFF = [
 				4647, 	# User initiated logoff
-				4634	# An account was logged off
+				4634,	# An account was logged off
+				4779, 	# RDP - Session disconnected
 				]
+
+EVT_LOGIN = [i-4096 for i in EVTX_LOGIN] + [540] # Successful network logon (=4624 in EVTX)
+EVT_LOGOFF = [i-4096 for i in EVTX_LOGOFF]
+
+USERNAME_STRING = 'tilisateur'
 
 def get_data(xml, name):
 	rex = re.compile('<Data Name="%s">(?P<%s>.*)</Data>' % (name, name))
@@ -56,10 +63,13 @@ def import_xml(filename):
 				match = eid_regex.search(xml)
 				eid = int(match.group('eid'))
 				session_id = get_data(xml, 'TargetLogonId')
-				
+
+				# Insert new session in dictionary
+				if sessions.get(session_id, None) == None:
+					sessions[session_id] = {}
+
 				if eid in EVTX_LOGIN:
 
-					# Insert new session in dictionary
 					if session_id:
 						sessions[session_id] = {}
 					else:
@@ -69,21 +79,20 @@ def import_xml(filename):
 					info['logon_type'] = get_data(xml, 'LogonType')
 					info['eid'] = str(eid)
 					info['username'] = get_data(xml, 'TargetDomainName') + '\\' + get_data(xml, 'TargetUserName')
-					info['username'] = get_data(xml, 'TargetDomainName') + '\\' + get_data(xml, 'TargetUserName')
 					info['ip'] = get_data(xml, 'IpAddress') + ':' + get_data(xml, 'IpPort')
-					info['datetime'] = time_regex.search(xml).group('time')
+					info['datetime'] = parse(time_regex.search(xml).group('time'))
 
-					sessions[session_id]['logon'] = info
+					sessions[session_id][str(eid)] = info
 				
 				elif eid in EVTX_LOGOFF:
 					# Ignore if orphan session
-					if not sessions.get(session_id):
+					if not sessions.get(session_id, None) == None:
 						continue
 
 					info = {}
 					info['eid'] = str(eid)
-					info['datetime'] = time_regex.search(xml).group('time')
-					sessions[session_id]['logoff'] = info
+					info['datetime'] = parse(time_regex.search(xml).group('time'))
+					sessions[session_id][str(eid)] = info
 					
 # 4624 - Login 		528
 # 4647 - Logoff 	551
@@ -107,7 +116,87 @@ def import_csv(filename, delimiter=';', quotechar='"'):
 		print "[*] %s lines imported" % (len(logs))
 		print '[*] Keys: %s' % ", ".join([i for i in logs[0]])
 
-		return logs[::-1]
+		# return logs[::-1]
+
+		sessions = {}
+		count = 0
+
+		for log in logs:
+
+			count += 1
+
+			try:
+				session_id = re.search('(?P<session_id>0x([0-9a-fA-F]{2,}))', log['Description']).group('session_id')
+			except Exception, e:
+				continue
+
+			if sessions.get(session_id, None) == None:
+				sessions[session_id] = {}
+
+			if int(log['Event']) in EVT_LOGIN:
+				info = {}
+				info['eid'] = log['Event']
+				info['datetime'] = parse(log['Date&Time'])
+				info['username'] = re.search("%s\W+(?P<username>[\w\.\-$]+)\n" %USERNAME_STRING, log['Description']).group('username')
+				sessions[session_id][log['Event']] = info
+
+			if int(log['Event']) in EVT_LOGOFF:
+				if sessions.get(session_id, None) == None: # Avoid orphan sessions
+					continue
+				info = {}
+				info['eid'] = log['Event']
+				info['datetime'] = parse(log['Date&Time'])
+				sessions[session_id][log['Event']] = info
+
+		print "[*] %s sessions found (%s lines parsed)" % (len(sessions), count)
+
+		return sessions
+
+		# print "[*] Session logs: %s" % len(session_list)
+		# session_list = list(set(session_list)) # uniq
+		# print "[*] Unique sessions: %s" % len(session_list)
+
+		# sessions = []
+		# for s in session_list:
+		# 	sessions.append({'ID': s})
+
+		# users = {}
+
+		# for s in sessions:
+		# 	s['log_entries'] = [l for l in logs if is_session(s['ID'], l)]
+			
+		# 	s['dates'] = []
+		# 	s['timestamps'] = []
+		# 	for l in s['log_entries']:
+		# 		s['dates'].append(parse(l['Date&Time']))
+		# 		s['timestamps'].append(calendar.timegm(parse(l['Date&Time']).timetuple()))
+		# 		if l['Event'] in ["540", "538", "528", "551"] :
+		# 			try:
+		# 				s['user'] = re.search("tilisateur\W+([\w\.\-$]+)\n", l['Description']).group(1)
+		# 				#print s['user']
+		# 			except Exception, e:	
+		# 				print "[-] User not found for session"
+		# 				print l
+		# 				exit()
+
+		# 	s['dates'].sort()
+		
+		# 	if users.get(s['user']) == None:
+		# 		users[s['user']] = []
+		# 	users[s['user']].append(s)
+		
+		lanes = [u for u in users]
+
+		items = []
+		for i, usr in enumerate(users):
+			for l in get_logons(users[usr]):
+				if l['end'] - l['start'] < datetime.timedelta(seconds=10):
+					l['end'] = l['start'] + datetime.timedelta(seconds=10)
+				items.append({'lane': i, 'id':str(l['start'])[-8:], 'start': str(l['start']), 'end': str(l['end'])})
+			
+
+		time_begin = min([i['start'] for i in items])
+		time_end = max([i['end'] for i in items])
 
 
 def print_log(log):
@@ -144,59 +233,7 @@ if __name__ == '__main__':
 	else:
 		Parser.error("You must specify a file format format (csv or xml)")
 
-	session_list = []
-	for log in logs:
-		try:
-			s = re.search('0x[a-fA-F0-9]{8,8}',log['Description']).group()
-			session_list.append(s)
-		except Exception, e:
-			pass
-
-	print "[*] Session logs: %s" % len(session_list)
-	session_list = list(set(session_list)) # uniq
-	print "[*] Unique sessions: %s" % len(session_list)
-
-	sessions = []
-	for s in session_list:
-		sessions.append({'ID': s})
-
-	users = {}
-
-	for s in sessions:
-		s['log_entries'] = [l for l in logs if is_session(s['ID'], l)]
-		
-		s['dates'] = []
-		s['timestamps'] = []
-		for l in s['log_entries']:
-			s['dates'].append(parse(l['Date&Time']))
-			s['timestamps'].append(calendar.timegm(parse(l['Date&Time']).timetuple()))
-			if l['Event'] in ["540", "538", "528", "551"] :
-				try:
-					s['user'] = re.search("tilisateur\W+([\w\.\-$]+)\n", l['Description']).group(1)
-					#print s['user']
-				except Exception, e:	
-					print "[-] User not found for session"
-					print l
-					exit()
-
-		s['dates'].sort()
 	
-		if users.get(s['user']) == None:
-			users[s['user']] = []
-		users[s['user']].append(s)
-	
-	lanes = [u for u in users]
-
-	items = []
-	for i, usr in enumerate(users):
-		for l in get_logons(users[usr]):
-			if l['end'] - l['start'] < datetime.timedelta(seconds=10):
-				l['end'] = l['start'] + datetime.timedelta(seconds=10)
-			items.append({'lane': i, 'id':str(l['start'])[-8:], 'start': str(l['start']), 'end': str(l['end'])})
-		
-
-	time_begin = min([i['start'] for i in items])
-	time_end = max([i['end'] for i in items])
 
 	print "[*] Collected sessions from %s to %s" % ((time_begin), (time_end))
 
