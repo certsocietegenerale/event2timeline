@@ -2,8 +2,8 @@
 #                                                                                                      #
 #   Event2Timeline by @tomchop_ for CERT Societe Generale (@CertSG). Some features added by @Jipe_     #
 #                                                                                                      #
-#   This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported   #
-#   License.http://creativecommons.org/licenses/by-nc-sa/3.0/                                          #
+#   This work is licensed under the GPL License                                                        #
+#   http://www.gnu.org/licenses/gpl.txt                                                                #
 #                                                                                                      #
 #   https://cert.societegenerale.com/ - https://github.com/certsocietegenerale/event2timeline/         #
 #                                                                                                      #

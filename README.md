@@ -38,3 +38,7 @@ Example
 
 ![Rendering example](/event2timeline.png "Result after parsing the SANS FOR 508 Security event logs")
 
+License
+-------
+This work is licensed under the GPL License
+http://www.gnu.org/licenses/gpl.txt
