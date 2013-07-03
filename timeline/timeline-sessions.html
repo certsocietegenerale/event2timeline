@@ -12,8 +12,16 @@
 		<title>Session timeline</title>
 		<script type="text/javascript" src="d3.v2.js"></script>
 		<style type="text/css">
+
+		#title {
+			font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+		}
 		line {
 			shape-rendering: crispEdges;
+		}
+
+		g.mini {
+			margin-top:30px;
 		}
 
 		.mini text {
@@ -55,8 +63,12 @@
 		</style>
 	</head>
 	<body>
+
 		<script type="text/javascript" src='evtdata.js'></script>
+		<div><h1 id='title'></h1></div>
 		<script type="text/javascript">
+
+		d3.select('#title').text('Timeline for ' + filename)
 
 		var color = d3.scale.ordinal()
 	    //.range(["#6c7086", "#89ba7d", "#6caaca", "#c3725e", "#c4acc2", "#f0b953", "#dd3034", "#ff7a41", "#00aa72", "#5ee743", "#c0f400", '#980023'])
@@ -71,7 +83,7 @@
 			miniHeight = laneLength * 15
 			mainHeight = winheight - miniHeight - 50
 			mainHeight = laneLength * 20
-			h = miniHeight + mainHeight + 30
+			h = miniHeight + mainHeight + 80
 
 
 		var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse; //2013-05-22 15:00:00
@@ -111,7 +123,7 @@
 					.attr("class", "main");
 
 		var mini = chart.append("g")
-					.attr("transform", "translate(" + m[3] + "," + (mainHeight + m[0]) + ")")
+					.attr("transform", "translate(" + m[3] + "," + (mainHeight + m[0] + 50) + ")")
 					.attr("width", w)
 					.attr("height", miniHeight)
 					.attr("class", "mini");
