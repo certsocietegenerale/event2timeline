@@ -244,7 +244,7 @@ def print_log(log):
 
 if __name__ == '__main__':
 
-	Parser = optparse.OptionParser(usage='usage: %prog [-c | -x] -f eventlogfile')
+	Parser = optparse.OptionParser(usage='usage: %prog [-c | -e] -f eventlogfile')
 	Parser.add_option('-f', '--filename', dest="eventlogfile", help='path to the evenlog file')
 	Parser.add_option('-c', '--csv', action="store_true", default=False, help='Specify the events are in CSV format (for an exported .evt)')
 	Parser.add_option('-e', '--evtx', action="store_true", default=False, help='Specify the events are in EVTX format (for a native .evtx)')
