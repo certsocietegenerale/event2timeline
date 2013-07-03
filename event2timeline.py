@@ -272,7 +272,9 @@ if __name__ == '__main__':
 	js.write("laneLength = lanes.length,\n")
 	js.write("items = %s,\n" % timeline['items'])
 	js.write("timeBegin = \'%s\',\n" % timeline['time_begin'])
-	js.write("timeEnd = \'%s\';\n" % timeline['time_end'])
+	js.write("timeEnd = \'%s\',\n" % timeline['time_end'])
+	js.write("filename = \'%s\';\n" % options.eventlogfile)
+
 
 	js.close()
 
