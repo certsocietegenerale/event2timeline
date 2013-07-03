@@ -18,6 +18,27 @@
 		}
 		line {
 			shape-rendering: crispEdges;
+			pointer-events:none;
+		}
+
+		.focus line {
+			fill: none;
+			stroke: #000;
+			shape-rendering: crispEdges;
+			pointer-events:none;
+		}
+
+		rect.overlay {
+			fill: none;
+			pointer-events:all;
+  			z-index: -1000;
+		}
+
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
 		}
 
 		g.mini {
@@ -71,11 +92,12 @@
 		d3.select('#title').text('Timeline for ' + filename)
 
 		var color = d3.scale.ordinal()
-	    //.range(["#6c7086", "#89ba7d", "#6caaca", "#c3725e", "#c4acc2", "#f0b953", "#dd3034", "#ff7a41", "#00aa72", "#5ee743", "#c0f400", '#980023'])
 	    .range(["#e60028", "#873d67", "#3e7eaf", "#d55a39", "#1a9656", "#666666", "#d24b28", "#0ac8dc", "#82379b", "#a50041", "#a0af00", "#ffa02d", "#c30082", "#00a550", "#64a0c8", "#c864cd", "#dc4b69", "#9be173", "#ffb414", "#e1648c", "#9178d2", "#6e3c28"])
 
 	    winwidth = window.innerWidth
 	    winheight = window.innerHeight
+
+	    // script inspired by https://gist.github.com/slojo404/2416297
 
 		var m = [20, 20, 15, 200], //top right bottom left
 			w = winwidth - m[1] - m[3]
@@ -95,6 +117,9 @@
 
 	    var x1 = d3.time.scale()
 	    	.range([0, w]);
+
+	    var miniAxis = d3.svg.axis().scale(x).orient("bottom");
+    	var mainAxis = d3.svg.axis().scale(x1).orient("bottom");
 
 
 		var y1 = d3.scale.linear()
@@ -122,11 +147,37 @@
 					.attr("height", mainHeight)
 					.attr("class", "main");
 
+		
+
 		var mini = chart.append("g")
 					.attr("transform", "translate(" + m[3] + "," + (mainHeight + m[0] + 50) + ")")
 					.attr("width", w)
 					.attr("height", miniHeight)
 					.attr("class", "mini");
+
+		main.append("g")
+	      .attr("class", "x axis")
+	      .attr("transform", "translate(0," + mainHeight + ")")
+	      .call(mainAxis);
+
+
+	      // focus line
+
+	      rect = main.append("rect")
+		      .attr("class", "overlay")
+		      .attr("width", w)
+		      .attr("height", mainHeight)
+
+      	
+
+		mini.append("g")
+	      .attr("class", "x axis")
+	      .attr("transform", "translate(0," + miniHeight + ")")
+	      .call(miniAxis);
+
+
+	    
+
 		
 		//main lanes and texts
 		main.append("g").selectAll(".laneLines")
@@ -188,16 +239,6 @@
 		      	return color(d['lane'])
 		      });
 
-		//mini labels
-		// mini.append("g").selectAll(".miniLabels")
-		// 	.data(items)
-		// 	.enter().append("text")
-		// 	// .text(function(d) {return d.id;})
-		// 	.attr("x", function(d) {return x(parseDate(d.start));})
-		// 	.attr("y", function(d) {return y2(d.lane + .5);})
-		// 	.attr("dy", ".5ex")
-		// 	.attr('class','smalltext');
-
 		//brush
 		var brush = d3.svg.brush()
 							.x(x)
@@ -210,7 +251,27 @@
 			.attr("y", 1)
 			.attr("height", miniHeight - 1);
 
+		var focus = main.append('g').attr('class','focus')
+		focus_line = focus.append('line').attr('x1',0).attr('y1',0).attr('x2',0).attr('y2',mainHeight)
+		focustext = focus.append('text')
+							.attr("x", 9)
+					      	.attr("dy", ".35em");
+
+		rect.on('mouseover', function() {focus.style("display",null)});
+		rect.on('mouseout', function() {focus.style("display",'none')});
+		rect.on('mousemove', focusmove);
+
 		display();
+
+		function focusmove() {
+			
+			date = x1.invert(d3.mouse(this)[0])
+			format = d3.time.format('%X %x')
+			date = format(date)
+			focus.attr('transform','translate('+d3.mouse(this)[0]+',0)')
+			focustext.attr('y', d3.mouse(this)[1])
+			focustext.text(date)
+		}
 
 
 		function display() {
@@ -223,6 +284,8 @@
 
 			mini.select(".brush")
 				.call(brush.extent([minExtent, maxExtent]));
+
+			main.select(".x.axis").call(mainAxis);
 
 			x1.domain([minExtent, maxExtent]);
 
@@ -264,20 +327,6 @@
 
 
 			rects.exit().remove();
-
-			//update the item labels
-			// labels = itemRects.selectAll("text")
-			// 	.data(visItems, function (d) { return d.id; })
-			// 	.attr("x", function(d) { return x1(Math.max(parseDate(d.start), minExtent) + 2); });
-
-			// labels.enter().append("text")
-			// 	.text(function(d) {return d.id;})
-			// 	.attr("x", function(d) {return x1(Math.max(parseDate(d.start), minExtent));})
-			// 	.attr("y", function(d) {return y1(d.lane + .5);})
-			// 	.attr("text-anchor", "start");
-
-			// labels.exit().remove();
-
 		}
 
 		function display_data(data) {
