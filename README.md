@@ -33,7 +33,7 @@ For old EVT files:
 
 The timeline is divided into two parts: a large timeline, and a smaller one. You can select what events to display on the large timeline by dragging your mouse on the smaller timeline. Events encompassed in the selected timespan will be displayed on the bigger timeline.
 
-Post-Vista EVTX files are supported. Just run `event2timeline.py -x -f Security.evtx`
+Post-Vista EVTX files are supported. Just run `event2timeline.py -e -f Security.evtx`
 
 Example
 -------
